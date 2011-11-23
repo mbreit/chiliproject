@@ -26,8 +26,10 @@ class ApplicationController < ActionController::Base
   exempt_from_layout 'builder', 'rsb'
 
   protect_from_forgery
+  skip_before_filter :verify_authenticity_token
+
   def handle_unverified_request
-    super
+    self.logged_user = nil
     cookies.delete(:autologin)
   end
 
@@ -61,7 +63,7 @@ class ApplicationController < ActionController::Base
     end
   end
 
-  before_filter :user_setup, :check_if_login_required, :set_localization
+  before_filter :user_setup, :check_authenticity_token, :check_if_login_required, :set_localization
   filter_parameter_logging :password
 
   rescue_from ActionController::InvalidAuthenticityToken, :with => :invalid_authenticity_token
@@ -79,6 +81,14 @@ class ApplicationController < ActionController::Base
     Setting.check_cache
     # Find the current user
     User.current = find_current_user
+  end
+
+  def check_authenticity_token
+    if User.current.logged?
+      verify_authenticity_token
+    else
+      self.request_forgery_protection_token = nil
+    end
   end
 
   # Returns the current user or nil if no user is logged in
